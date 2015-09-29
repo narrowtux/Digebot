@@ -50,3 +50,11 @@ After that you're good to go.
 Run 
 
 ```node main.js```
+
+## License
+This project is licensed under the GNU Lesser General Public License, Version 3.0
+
+## Contributors
+
+ * @ridddle Inspiration, Design Q/A Testing
+ * @narrowtux Programming

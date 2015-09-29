@@ -176,7 +176,7 @@ function sendDigests() {
                         attachments: JSON.stringify([{
                             title: row["summary"],
                             text: "_suggested by " + suggestingUser.name + "_",
-                            color: "#2CCC9E",
+                            color: "#733AA9",
                             title_link: row["message_url"],
                             mrkdwn_in: ["text"]
                         }])
