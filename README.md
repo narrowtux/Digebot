@@ -1,5 +1,5 @@
 # Slack Digest Bot
-![Digest preview](http://i.imgur.com/j4L9CXs.png)
+![Digest preview](http://i.imgur.com/AqKyh4E.png)
 
 This bot will collect summaries about what happened in channels.
 
