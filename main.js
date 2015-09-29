@@ -140,6 +140,48 @@ function invokeMessageQueue(data) {
     slack._apiCall("chat.postMessage", sendingMessage, invokeMessageQueue);
 }
 
+function emptyDigest() {
+    return {
+        suggestingUsers: [],
+        message_url: null,
+        summaries: [],
+        text: ""
+    };
+}
+function sendDigest(digest) {
+    var users = "";
+    for (var i = 0; i < digest.suggestingUsers.length; i ++) {
+        users += digest.suggestingUsers[i].name.replace(/([a-z])/, "$1\u200B");
+        if (i < digest.suggestingUsers.length - 2) {
+            users += ", ";
+        } else if (i == digest.suggestingUsers.length - 2) {
+            users += " and ";
+        }
+    }
+    var titles = "";
+    for (i = 0; i < digest.summaries.length; i++) {
+        titles += '“' + digest.summaries[i] + '”';
+        if (i < digest.summaries.length - 1) {
+            titles += "\n";
+        }
+    }
+
+    var msg = {
+        channel: digestChannel.id,
+        unfurl_links: true,
+        as_user: true,
+        text: digest.text,
+        attachments: JSON.stringify([{
+            title: titles,
+            text: "_suggested by " + users + "_",
+            color: "#733AA9",
+            title_link: digest.message_url,
+            mrkdwn_in: ["text", "title"]
+        }])
+    };
+    messageQueue.push(msg);
+}
+
 function sendDigests() {
     db.serialize(function () {
         db.each("SELECT COUNT(*) FROM digests WHERE status = 0", function(err, row) {
@@ -150,11 +192,23 @@ function sendDigests() {
                 var lastChannel = null;
 
                 var i = 0;
-                db.each("SELECT * FROM digests WHERE status = 0 ORDER BY channel ASC, created ASC", function (err, row) {
+                var lastDigest = emptyDigest();
+                db.each("SELECT * FROM digests WHERE status = 0 ORDER BY channel ASC, message_url ASC, created DESC", function (err, row) {
                     if (err) {
                         logger.critical("Error while accessing db for digests");
                         logger.critical(err);
                         return;
+                    }
+                    if (lastDigest && lastDigest.message_url != row["message_url"]) {
+                        if (lastDigest.message_url) {
+                            sendDigest(lastDigest);
+                        }
+                        lastDigest = emptyDigest();
+
+                        var urlMatch = URL_PATTERN.exec(row["message"]);
+
+                        lastDigest.text = urlMatch ? urlMatch[1] : "";
+                        lastDigest.message_url = row["message_url"];
                     }
                     var currentChannel = slack.getChannelByID(row["channel"]);
                     if (!lastChannel || lastChannel.id != currentChannel.id) {
@@ -166,26 +220,15 @@ function sendDigests() {
                         messageQueue.push(channelMsg);
                     }
                     var suggestingUser = slack.getUserByID(row["user"]);
-
-                    var urlMatch = URL_PATTERN.exec(row["message"]);
-                    var msg = {
-                        channel: digestChannel.id,
-                        text: urlMatch ? urlMatch[1] : "",
-                        unfurl_links: true,
-                        as_user: true,
-                        attachments: JSON.stringify([{
-                            title: row["summary"],
-                            text: "_suggested by " + suggestingUser.name + "_",
-                            color: "#733AA9",
-                            title_link: row["message_url"],
-                            mrkdwn_in: ["text"]
-                        }])
-                    };
-                    messageQueue.push(msg);
+                    if (lastDigest.suggestingUsers.indexOf(suggestingUser) < 0) {
+                        lastDigest.suggestingUsers.push(suggestingUser);
+                    }
+                    lastDigest.summaries.push(row["summary"]);
 
                     lastChannel = currentChannel;
                     i++;
                     if (i == count) {
+                        sendDigest(lastDigest);
                         invokeMessageQueue();
                         db.run("UPDATE digests SET status = 1 WHERE status = 0");
                     }
@@ -243,7 +286,7 @@ webapp.post("/slackslash", function(req, res) {
     }
 });
 
-var server = webapp.listen(3000);
+var server = webapp.listen(config.port);
 
 slack.login();
 
