@@ -56,5 +56,5 @@ This project is licensed under the GNU Lesser General Public License, Version 3.
 
 ## Contributors
 
- * @ridddle Inspiration, Design Q/A Testing
+ * @ridddle Inspiration, Design, QA, Testing
  * @narrowtux Programming
